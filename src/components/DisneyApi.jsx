@@ -35,7 +35,8 @@ const DisneyApi = () => {
         const res = await fetch("https://api.disneyapi.dev/character");
         if (!res.ok) throw new Error("Network error");
         const json = await res.json();
-        setCharacters(Array.isArray(json.data) ? json.data : []);
+        const list = Array.isArray(json.data) ? json.data : [];
+        setCharacters(list);
       } catch (err) {
         setError(err.message || "Unknown error");
       } finally {
@@ -48,9 +49,7 @@ const DisneyApi = () => {
   useEffect(() => {
     if (!characters[0]) return;
     const sample = characters[0];
-    const extras = Object.keys(sample).filter(
-      (k) => k !== "_id" && !(k in formData)
-    );
+    const extras = Object.keys(sample).filter((k) => k !== "_id" && !(k in formData));
     if (extras.length) {
       const add = {};
       extras.forEach((k) => {
@@ -100,14 +99,28 @@ const DisneyApi = () => {
         if (val !== "") newChar[k] = val;
       }
     });
-    // minimal id
-    newChar._id = Date.now();
+
+    // compute next numeric id based on existing _id/id keys
+    const numericIds = characters
+      .map((ch) => Number(ch._id ?? ch.id))
+      .filter((n) => Number.isFinite(n));
+    const nextId = numericIds.length ? Math.max(...numericIds) + 1 : Date.now();
+
+    newChar._id = nextId;
     // ensure name and image exist for display
     newChar.name = newChar.name || "Unknown";
     newChar.imageUrl = newChar.imageUrl || placeholder;
+
     setCharacters((p) => [newChar, ...p]);
     // reset form
     setFormData(DEFAULT_FIELDS.reduce((a, k) => ((a[k] = ""), a), {}));
+  };
+
+  // remove character by existing id/_id
+  const handleRemove = (id) => {
+    setCharacters((prev) =>
+      prev.filter((ch) => String(ch._id ?? ch.id ?? "") !== String(id))
+    );
   };
 
   // derive visible fields (keep stable order)
@@ -178,6 +191,15 @@ const DisneyApi = () => {
                 <span className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full bg-gray-800/60 px-3 py-1 text-xs text-gray-100">
                   🎬 {films}
                 </span>
+
+                <button
+                  onClick={() => handleRemove(id)}
+                  className="absolute left-3 top-3 h-8 w-8 rounded-full bg-red-600/80 text-white text-xs flex items-center justify-center hover:bg-red-500"
+                  aria-label={`Remove ${name}`}
+                  title={`Remove ${name}`}
+                >
+                  ×
+                </button>
               </div>
 
               <div className="p-4">
